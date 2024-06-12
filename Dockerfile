@@ -1,13 +1,13 @@
-FROM node:18
+FROM node:16-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm i
+RUN npm ci
 
-COPY . /app
+COPY . .
 
 EXPOSE 8080
 
-CMD [ "npm", "start" ]
+CMD ["npm", "run", "dev"]

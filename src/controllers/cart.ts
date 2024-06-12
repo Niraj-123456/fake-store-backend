@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import CartModal from "../models/cart";
+import { ObjectId } from "mongodb";
 
 export const addToCart = async (req: Request, res: Response) => {
-  const { productId, quantity, name, price, userId } = req.body;
+  const { productId, quantity, name, price, image, userId } = req.body;
 
   try {
     let cart = await CartModal.findOne({ userId });
@@ -18,7 +19,7 @@ export const addToCart = async (req: Request, res: Response) => {
         productItem.quantity += quantity;
         cart.products[cartIndex] = productItem;
       } else {
-        cart.products.push({ productId, quantity, name, price });
+        cart.products.push({ productId, quantity, name, price, image });
       }
       cart = await cart.save();
       return res.status(StatusCodes.CREATED).json(cart);
@@ -38,11 +39,11 @@ export const addToCart = async (req: Request, res: Response) => {
 };
 
 export const getCartItems = async (req: Request, res: Response) => {
-  const params = req.params;
+  const { userId } = req.params;
 
   try {
-    const cartItems: any = await CartModal.find({ userId: params.userId });
-    res.status(StatusCodes.OK).json(cartItems);
+    const cart = await CartModal.findOne({ userId });
+    res.status(StatusCodes.OK).json(cart);
   } catch (err) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: err });
   }
@@ -127,5 +128,30 @@ export const updateCartItemQuantity = async (req: Request, res: Response) => {
     res.status(StatusCodes.OK).json(cart);
   } catch (err) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: err });
+  }
+};
+
+export const getCartItemsCount = async (req: Request, res: Response) => {
+  const { userId } = req.params;
+
+  try {
+    const cartItems = await CartModal.findOne({ userId });
+    if (!cartItems) {
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json({ message: "Cart not found" });
+    }
+    const count = cartItems.products.length;
+    if (!count) {
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json({ message: "Cart is empty" });
+    }
+
+    return res.status(StatusCodes.OK).json({ count });
+  } catch (err) {
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: err ? err : "Something went wrong" });
   }
 };
