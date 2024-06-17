@@ -141,7 +141,11 @@ export const getCartItemsCount = async (req: Request, res: Response) => {
         .status(StatusCodes.NOT_FOUND)
         .json({ message: "Cart not found" });
     }
-    const count = cartItems.products.length;
+    const count = cartItems.products.reduce(
+      (acc, item) => item.quantity + acc,
+      0
+    );
+    
     if (!count) {
       return res
         .status(StatusCodes.NOT_FOUND)
