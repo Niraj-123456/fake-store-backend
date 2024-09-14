@@ -17,6 +17,9 @@ const CartSchema = new mongoose.Schema(
         image: String,
       },
     ],
+    totalPrice: Number,
+    shippingFee: Number,
+    finalPrice: Number,
     active: {
       type: Boolean,
       default: true,
