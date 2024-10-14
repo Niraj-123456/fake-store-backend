@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import ProductModal from "../models/product";
 import { ObjectId } from "mongodb";
+import { StatusCodes } from "http-status-codes";
 
 export const fetchProducts = async (req: Request, res: Response) => {
   const { limit, offset } = req.query;
@@ -11,9 +12,9 @@ export const fetchProducts = async (req: Request, res: Response) => {
   const skip = (pageNumber - 1) * noOfItems;
   try {
     const products = await ProductModal.find().skip(skip).limit(Number(limit));
-    res.status(200).json(products);
+    res.status(StatusCodes.OK).json(products);
   } catch (ex) {
-    res.status(500).json({ error: ex });
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });
   }
 };
 
@@ -28,8 +29,10 @@ export const fetchProductDetailById = async (req: Request, res: Response) => {
         .status(404)
         .json({ message: `Product not found by id ${productId}` });
 
-    res.status(200).json(product);
+    res.status(StatusCodes.OK).json(product);
   } catch (err) {
-    res.status(500).json({ message: err ? err : "Something went wrong" });
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: err ? err : "Something went wrong" });
   }
 };

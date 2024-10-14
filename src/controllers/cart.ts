@@ -151,7 +151,7 @@ export const updateCartItemQuantity = async (req: Request, res: Response) => {
     const productItem = cart.products[productIndex];
     productItem.quantity = quantity;
     cart.products[productIndex] = productItem;
-    cart.totalPrice = productItem.to
+    cart.totalPrice = productItem.price * productItem.quantity;
 
     cart = await cart.save();
     res.status(StatusCodes.OK).json(cart);
