@@ -7,10 +7,12 @@ import { productRoutes } from "./product";
 import { categoryRoutes } from "./categories";
 import { userRoutes } from "./user";
 import { cartRoutes } from "./cart";
+import { homeRoutes } from "./home";
 
-router.use("/products", productRoutes);
+router.use("/", productRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/cart", cartRoutes);
+router.use("/home", homeRoutes);
 router.use("/", userRoutes);
 router.use("/", (req, res) => {
   res.status(StatusCodes.OK).json({ message: "API is running" });
