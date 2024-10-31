@@ -19,13 +19,7 @@ export const addToCart = async (req: Request, res: Response) => {
         const productItem = cart.products[cartIndex];
         productItem.quantity += quantity;
         cart.products[cartIndex] = productItem;
-        cart.totalPrice += price * quantity;
-        cart.shippingFee = SHIPPING_FEE;
-        cart.finalPrice = cart.totalPrice + SHIPPING_FEE;
       } else {
-        cart.totalPrice = price * quantity;
-        cart.shippingFee = SHIPPING_FEE;
-        cart.finalPrice = cart.totalPrice + cart.shippingFee;
         cart.products.push({
           productId,
           quantity,
@@ -34,6 +28,11 @@ export const addToCart = async (req: Request, res: Response) => {
           image,
         });
       }
+      cart.totalPrice = cart?.products?.reduce((acc: number, product: any) => {
+        return acc + product.price * (product.quantity || 1);
+      }, 0);
+      cart.shippingFee = SHIPPING_FEE;
+      cart.finalPrice = cart.totalPrice + cart.shippingFee;
       cart = await cart.save();
       return res.status(StatusCodes.CREATED).json(cart);
     } else {
@@ -112,11 +111,11 @@ export const deleteCartItem = async (req: Request, res: Response) => {
         .json({ message: "Product not found in cart" });
     }
 
-    cart.products.splice(productIndex, 1);
     cart.totalPrice -=
       cart.products[productIndex].price * cart.products[productIndex].quantity;
     cart.shippingFee = cart.products?.length > 0 ? SHIPPING_FEE : 0;
     cart.finalPrice = cart.totalPrice + cart.shippingFee;
+    cart?.products?.splice(productIndex, 1);
 
     cart = await cart.save();
     res.status(StatusCodes.OK).json(cart);
