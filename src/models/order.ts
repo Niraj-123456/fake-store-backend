@@ -1,8 +1,12 @@
 import mongoose from "mongoose";
+import ShippingModel from "./shipping";
+
+type DeliveryMethod = "STANDARD" | "EXPRESS";
 
 const OrderSchema = new mongoose.Schema(
   {
     userId: { type: String, required: true },
+    cartId: { type: String, required: true },
     products: [
       {
         productId: String,
@@ -13,7 +17,13 @@ const OrderSchema = new mongoose.Schema(
       },
     ],
     amount: { type: Number, required: true },
-    address: { type: Object, required: true },
+    currency: { type: String, required: true, default: "usd" },
+    deliveryMethod: {
+      type: String,
+      enum: ["STANDARD", "EXPRESS"],
+      default: "STANDARD",
+    },
+    shippingAddress: { type: ShippingModel.schema, required: true },
     status: { type: String, default: "pending" },
   },
   { timestamps: true }

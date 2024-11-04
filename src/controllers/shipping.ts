@@ -3,14 +3,33 @@ import ShippingModel from "../models/shipping";
 import { StatusCodes } from "http-status-codes";
 
 export const saveShippingAddress = async (req: Request, res: Response) => {
-  const { userId, city, country, zipCode, streetName, phoneNumber } = req.body;
+  const {
+    userId,
+    firstName,
+    lastName,
+    email,
+    city,
+    country,
+    zipCode,
+    streetName,
+    phoneNumber,
+  } = req.body;
 
   if (!userId)
     return res
       .status(StatusCodes.BAD_REQUEST)
       .json({ message: "userId is required" });
 
-  if (!phoneNumber || !city || !country || !zipCode || !streetName)
+  if (
+    !firstName ||
+    !lastName ||
+    !email ||
+    !phoneNumber ||
+    !city ||
+    !country ||
+    !zipCode ||
+    !streetName
+  )
     return res.status(StatusCodes.BAD_REQUEST).json({
       message:
         "country, city, zipCode, streetName and phoneNumber are required",
@@ -19,6 +38,9 @@ export const saveShippingAddress = async (req: Request, res: Response) => {
   try {
     const shipping = new ShippingModel({
       userId,
+      firstName,
+      lastName,
+      email,
       city,
       country,
       zipCode,
@@ -28,7 +50,7 @@ export const saveShippingAddress = async (req: Request, res: Response) => {
 
     const data = await shipping.save();
 
-    res.status(StatusCodes.OK).json({ data });
+    res.status(StatusCodes.CREATED).json(data);
   } catch (err) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: err });
   }
@@ -47,7 +69,25 @@ export const getShippingAddressListByUserId = async (
 
   try {
     const data = await ShippingModel.find({ userId });
-    res.status(StatusCodes.OK).json({ data });
+    res.status(StatusCodes.OK).json(data);
+  } catch (err) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: err });
+  }
+};
+
+export const getShippingAddressDetailById = async (
+  req: Request,
+  res: Response
+) => {
+  const { shippingId } = req.params;
+  if (!shippingId)
+    return res
+      .status(StatusCodes.BAD_REQUEST)
+      .json({ message: "shippingId is missing for url params" });
+
+  try {
+    const data = await ShippingModel.findById(shippingId);
+    res.json(StatusCodes.OK).json(data);
   } catch (err) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: err });
   }
@@ -62,10 +102,8 @@ export const deleteShippingAddress = async (req: Request, res: Response) => {
       .json({ message: "shippingId is missing for url params" });
 
   try {
-    await ShippingModel.findByIdAndDelete(shippingId);
-    res.status(StatusCodes.OK).json({
-      message: `Shipping Address with id ${shippingId} deleted successfully`,
-    });
+    const data = await ShippingModel.findByIdAndDelete(shippingId);
+    res.status(StatusCodes.OK).json(data);
   } catch (err) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: err });
   }
@@ -80,10 +118,7 @@ export const updateShippingAddress = async (req: Request, res: Response) => {
 
   try {
     const data = await ShippingModel.findByIdAndUpdate(shippingId, req.body);
-    res.status(StatusCodes.OK).json({
-      data,
-      message: `Shipping Address with id ${shippingId} updated successfully`,
-    });
+    res.status(StatusCodes.OK).json(data);
   } catch (err) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: err });
   }

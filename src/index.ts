@@ -1,5 +1,5 @@
 require("dotenv").config();
-import express from "express";
+import express, { Request, Response } from "express";
 import path from "path";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
@@ -7,45 +7,58 @@ import cors from "cors";
 
 import DBConnect from "./database/db";
 import { Routes } from "./routes";
+import Stripe from "stripe";
+import { handlePaymentIntent } from "./controllers/payment";
+import bodyParser from "body-parser";
+
+const stripe = new Stripe(process.env.STRIPE_PRIVATE_KEY);
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 
 // connect to the database
 DBConnect();
 
 const app = express();
 app.use(cors());
+
+app.post(
+  "/api/v1/stripe-webhook",
+  bodyParser.raw({ type: "application/json" }),
+  (req: Request, res: Response) => {
+    const signature = req.headers["stripe-signature"];
+
+    try {
+      const event = stripe.webhooks.constructEvent(
+        req.body,
+        signature,
+        stripeWebhookSecret
+      );
+
+      // Handle event types as needed
+      switch (event.type) {
+        case "payment_intent.succeeded":
+          const paymentIntentSuccess = event.data.object;
+          handlePaymentIntent(paymentIntentSuccess);
+          break;
+        case "payment_intent.payment_failed":
+          const paymentIntentFailed = event.data.object;
+          handlePaymentIntent(paymentIntentFailed);
+          break;
+        default:
+          console.log(`Unhandled event type ${event.type}`);
+      }
+
+      res.status(200).send();
+    } catch (error) {
+      console.error(`Webhook signature verification failed: ${error.message}`);
+      res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+  }
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-
 app.use("/api/v1", Routes);
 app.use("/public", express.static(path.join(__dirname, "public")));
-
-// app.post("/register", async (req, res) => {
-//   const username = req.body.username;
-//   const password = req.body.password;
-
-//   try {
-//     const hashedPassword = await bcrypt.hash(password, 10);
-//     const user = { name: username, password: hashedPassword };
-//     users.push(user);
-//     res.status(201).send("User added successfully");
-//   } catch (err) {
-//     res.status(500).send(err);
-//   }
-// });
-
-// app.get("/posts", authenticate, (req, res) => {
-//   res.json(posts.filter((post) => post.username === req.user.user.name));
-// });
-
-// function authenticate(req, res, next) {
-//   const authToken = req.headers["authorization"];
-//   const token = authToken && authToken.split(" ")[1];
-//   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-//     if (err) return res.sendStatus(403);
-//     req.user = user;
-//     next();
-//   });
-// }
 
 app
   .listen(process.env.PORT, () => {

@@ -10,9 +10,11 @@ import { cartRoutes } from "./cart";
 import { orderRoutes } from "./order";
 import { homeRoutes } from "./home";
 import { paymentRoutes } from "./payment";
+import { shippingRoutes } from "./shipping";
 
 router.use("/payment", paymentRoutes);
 router.use("/order", orderRoutes);
+router.use("/shipping", shippingRoutes);
 router.use("/cart", cartRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/home", homeRoutes);

@@ -2,23 +2,42 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import PaymentModal from "../models/payment";
 import Stripe from "stripe";
+import OrderModel from "../models/order";
 
 const stripe = new Stripe(process.env.STRIPE_PRIVATE_KEY);
 
 export const createPaymentIntent = async (req: Request, res: Response) => {
-  const { amount, currency } = req.body;
+  const { orderId } = req.body;
+  const { userId } = req.params;
 
-  if (!amount)
+  if (!userId) {
     return res
       .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "amount is missing" });
+      .json({ message: "userId is missing from url params" });
+  }
+
+  if (!orderId)
+    return res
+      .status(StatusCodes.BAD_REQUEST)
+      .json({ message: "orderIdis required" });
 
   try {
+    const order = await OrderModel.findById(orderId);
+
+    if (!order)
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json({ message: `Order with id ${orderId} not found` });
+
     const result = await stripe.paymentIntents.create({
-      amount,
-      currency: currency || "usd",
+      amount: order?.amount,
+      currency: order?.currency ?? "usd",
       automatic_payment_methods: {
         enabled: true,
+      },
+      metadata: {
+        orderId,
+        userId,
       },
     });
 
@@ -28,93 +47,45 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
   }
 };
 
-export const stripeWebhook = async (req: Request, res: Response) => {
-  let event;
-
-  const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  const signature = req.headers["stripe-signature"];
-
-  if (!stripeWebhookSecret)
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Stripe webhook secret missing." });
-
-  if (!signature)
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "webhook signature verification failed." });
-
-  try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      signature,
-      stripeWebhookSecret
-    );
-  } catch (err) {
-    res.status(StatusCodes.BAD_REQUEST).send(`Webhook Error: ${err.message}`);
-  }
-
-  switch (event.type) {
-    case "payment_intent.succeeded":
-      const paymentIntentSuccess = event.data.object;
-      handlePaymentIntent(paymentIntentSuccess);
-      break;
-
-    case "payment_intent.payment_failed":
-      const paymentIntentFailed = event.data.object;
-      handlePaymentIntent(paymentIntentFailed);
-      break;
-
-    default:
-      console.log(`Unhandled event type ${event.type}`);
-  }
-
-  res.status(StatusCodes.OK).json({ received: true });
-};
-
-export const paymentWithStripe = async (req: Request, res: Response) => {
-  const { tokenId, amount, currency } = req.body;
+export const verifyPaymentWithStripe = async (req: Request, res: Response) => {
+  const { tokenId } = req.params;
   if (!tokenId)
     return res
       .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Token id is missing." });
-  if (!amount || amount <= 0)
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Amount must be greater than zero." });
-  if (!currency)
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Currency is required" });
+      .json({ message: "paymentIntentId is missing." });
 
   try {
-    const result = await stripe.charges.create({
-      source: tokenId,
-      amount,
-      currency,
-    });
-    res.status(StatusCodes.OK).json(result);
+    const payment = await PaymentModal.findOne({ tokenId });
+    res.status(StatusCodes.OK).json(payment);
   } catch (ex) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(ex);
   }
 };
 
-const handlePaymentIntent = async (paymentIntent: any) => {
-  const { id, amount, currency, status } = paymentIntent;
+export const handlePaymentIntent = async (
+  paymentIntent: Stripe.PaymentIntent
+) => {
+  console.log("payment intent", paymentIntent);
+  const { id, amount, currency, status, metadata, payment_method } =
+    paymentIntent;
+
   try {
     const paymentSucceed = new PaymentModal({
       tokenId: id,
       amount,
       currency,
       status,
-      userId: "66eab8e2627585b82bf4afc6",
-      orderId: "671e491884fe984699dcfb52",
-      method: "stripe-web",
+      userId: metadata?.userId,
+      orderId: metadata?.orderId,
+      method: payment_method,
     });
 
     await paymentSucceed.save();
-    console.log("stripe payment successfull");
+    console.log("stripe payment successfull 126");
+    const order = await OrderModel.findById(metadata?.orderId);
+    order.status = status === "succeeded" ? "completed" : "pending";
+    order.save();
+    console.log("order status updated to completed");
   } catch (err) {
     console.log("error", err);
   }

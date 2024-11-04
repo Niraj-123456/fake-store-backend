@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import OrderModel from "../models/order";
+import CartModal from "../models/cart";
+
+const SHIPPING_FEE = Number(process.env.SHIPPING_FEE) || 10;
 
 export const getOrders = async (req: Request, res: Response) => {
   const { limit, offset } = req.params;
@@ -32,19 +35,28 @@ export const getOrderByUserId = async (req: Request, res: Response) => {
         .status(StatusCodes.NOT_FOUND)
         .json({ message: "Order not Found" });
 
-    res.status(StatusCodes.OK).json({ data: order });
+    res.status(StatusCodes.OK).json(order);
   } catch (ex) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });
   }
 };
 
 export const createUserOrder = async (req: Request, res: Response) => {
-  const { userId, products, address, status } = req.body;
+  const { userId, cartId, products, shippingAddress, status, deliveryMethod } =
+    req.body;
 
-  if (!userId || !products || products.length === 0 || !address || !status)
-    return res
-      .status(StatusCodes.BAD_REQUEST)
-      .json({ message: "Invalid request data" });
+  if (
+    !userId ||
+    !cartId ||
+    !products ||
+    products.length === 0 ||
+    !shippingAddress ||
+    !status
+  )
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message:
+        "userId, cartId, products, shippingAddress and status are required",
+    });
 
   try {
     const totalAmount = products?.reduce((acc: number, product: any) => {
@@ -52,13 +64,36 @@ export const createUserOrder = async (req: Request, res: Response) => {
     }, 0);
     let newOrder = new OrderModel({
       userId,
+      cartId,
       products,
-      address,
+      shippingAddress,
       status,
+      deliveryMethod,
       amount: totalAmount,
     });
-    const order = await newOrder.save();
-    res.status(StatusCodes.OK).json({ data: order });
+    const data = await newOrder.save();
+    res.status(StatusCodes.CREATED).json(data);
+    const cart = await CartModal.findById(cartId);
+    if (!cart) {
+      console.log(`cart with id ${cartId} not found`);
+    }
+
+    cart.products = cart.products.filter((cartProduct) => {
+      return !products.some(
+        (orderedProduct: any) =>
+          orderedProduct.productId === cartProduct.productId
+      );
+    });
+
+    const shippingFee = deliveryMethod === "STANDARD" ? 4 : 10;
+    cart.totalPrice = cart.products.reduce(
+      (acc, product) => acc + product.price * product.quantity,
+      0
+    );
+    cart.shippingFee = cart.products?.length > 0 ? shippingFee : 0;
+    cart.finalPrice = cart.totalPrice + cart.shippingFee;
+    await cart.save();
+    console.log("cart updated 93");
   } catch (ex) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });
   }
@@ -83,7 +118,7 @@ export const updateUserOrder = async (req: Request, res: Response) => {
 
     order.products = products;
     order.amount = amount;
-    order.address = address;
+    order.shippingAddress = address;
     order.status = status;
 
     const updatedOrder = await order.save();

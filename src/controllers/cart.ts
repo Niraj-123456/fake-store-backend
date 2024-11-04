@@ -111,6 +111,11 @@ export const deleteCartItem = async (req: Request, res: Response) => {
         .json({ message: "Product not found in cart" });
     }
 
+    // if (cart.products?.length === 0) {
+    //   await CartModal.findByIdAndDelete(cartId);
+    //   console.log("cart deleted 116");
+    // }
+
     cart.totalPrice -=
       cart.products[productIndex].price * cart.products[productIndex].quantity;
     cart.shippingFee = cart.products?.length > 0 ? SHIPPING_FEE : 0;
