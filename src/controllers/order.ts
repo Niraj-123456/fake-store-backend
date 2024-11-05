@@ -21,6 +21,28 @@ export const getOrders = async (req: Request, res: Response) => {
   }
 };
 
+export const getOrderById = async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+
+  if (!orderId)
+    return res
+      .status(StatusCodes.BAD_REQUEST)
+      .json({ message: "orderId is missing" });
+
+  try {
+    const order = await OrderModel.findById(orderId);
+
+    if (!order)
+      return res
+        .status(StatusCodes.NOT_FOUND)
+        .json({ message: "Order not found" });
+
+    res.status(StatusCodes.OK).json(order);
+  } catch (ex) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });
+  }
+};
+
 export const getOrderByUserId = async (req: Request, res: Response) => {
   const { userId } = req.params;
 
@@ -59,9 +81,13 @@ export const createUserOrder = async (req: Request, res: Response) => {
     });
 
   try {
+    const shippingFee = deliveryMethod === "STANDARD" ? 4 : 10;
     const totalAmount = products?.reduce((acc: number, product: any) => {
       return acc + product.price * (product.quantity || 1);
     }, 0);
+
+    const finalAmount = totalAmount + shippingFee;
+
     let newOrder = new OrderModel({
       userId,
       cartId,
@@ -69,7 +95,8 @@ export const createUserOrder = async (req: Request, res: Response) => {
       shippingAddress,
       status,
       deliveryMethod,
-      amount: totalAmount,
+      totalAmount,
+      finalAmount,
     });
     const data = await newOrder.save();
     res.status(StatusCodes.CREATED).json(data);
@@ -85,7 +112,6 @@ export const createUserOrder = async (req: Request, res: Response) => {
       );
     });
 
-    const shippingFee = deliveryMethod === "STANDARD" ? 4 : 10;
     cart.totalPrice = cart.products.reduce(
       (acc, product) => acc + product.price * product.quantity,
       0
@@ -101,7 +127,7 @@ export const createUserOrder = async (req: Request, res: Response) => {
 
 export const updateUserOrder = async (req: Request, res: Response) => {
   const { userId } = req.params;
-  const { products, amount, address, status } = req.body;
+  const { products, totalAmount, finalAmount, address, status } = req.body;
 
   if (!userId)
     return res
@@ -117,7 +143,8 @@ export const updateUserOrder = async (req: Request, res: Response) => {
         .json({ message: "Order not found" });
 
     order.products = products;
-    order.amount = amount;
+    order.totalAmount = totalAmount;
+    order.finalAmount = finalAmount;
     order.shippingAddress = address;
     order.status = status;
 

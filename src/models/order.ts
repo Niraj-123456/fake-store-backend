@@ -16,7 +16,8 @@ const OrderSchema = new mongoose.Schema(
         image: String,
       },
     ],
-    amount: { type: Number, required: true },
+    totalAmount: { type: Number, required: true },
+    finalAmount: { type: Number, required: true },
     currency: { type: String, required: true, default: "usd" },
     deliveryMethod: {
       type: String,
@@ -24,6 +25,7 @@ const OrderSchema = new mongoose.Schema(
       default: "STANDARD",
     },
     shippingAddress: { type: ShippingModel.schema, required: true },
+    paymentMethod: { type: Object },
     status: { type: String, default: "pending" },
   },
   { timestamps: true }

@@ -33,15 +33,17 @@ app.post(
         stripeWebhookSecret
       );
 
+      let paymentIntentId;
+
       // Handle event types as needed
       switch (event.type) {
         case "payment_intent.succeeded":
-          const paymentIntentSuccess = event.data.object;
-          handlePaymentIntent(paymentIntentSuccess);
+          paymentIntentId = event.data.object.id;
+          handlePaymentIntent(paymentIntentId);
           break;
         case "payment_intent.payment_failed":
-          const paymentIntentFailed = event.data.object;
-          handlePaymentIntent(paymentIntentFailed);
+          paymentIntentId = event.data.object.id;
+          handlePaymentIntent(paymentIntentId);
           break;
         default:
           console.log(`Unhandled event type ${event.type}`);

@@ -30,7 +30,7 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
         .json({ message: `Order with id ${orderId} not found` });
 
     const result = await stripe.paymentIntents.create({
-      amount: order?.amount,
+      amount: order?.totalAmount * 100,
       currency: order?.currency ?? "usd",
       automatic_payment_methods: {
         enabled: true,
@@ -39,6 +39,7 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
         orderId,
         userId,
       },
+      expand: ["payment_method"],
     });
 
     res.status(StatusCodes.OK).json({ client_secret: result.client_secret });
@@ -62,30 +63,33 @@ export const verifyPaymentWithStripe = async (req: Request, res: Response) => {
   }
 };
 
-export const handlePaymentIntent = async (
-  paymentIntent: Stripe.PaymentIntent
-) => {
-  console.log("payment intent", paymentIntent);
-  const { id, amount, currency, status, metadata, payment_method } =
-    paymentIntent;
-
+export const handlePaymentIntent = async (paymentIntentId: string) => {
   try {
+    const paymentIntentObj = await stripe.paymentIntents.retrieve(
+      paymentIntentId,
+      {
+        expand: ["payment_method"],
+      }
+    );
+    const { id, amount, currency, metadata, payment_method, status } =
+      paymentIntentObj;
     const paymentSucceed = new PaymentModal({
       tokenId: id,
-      amount,
+      amount: amount / 100,
       currency,
       status,
       userId: metadata?.userId,
       orderId: metadata?.orderId,
-      method: payment_method,
+      paymentMethod: payment_method,
     });
 
     await paymentSucceed.save();
     console.log("stripe payment successfull 126");
     const order = await OrderModel.findById(metadata?.orderId);
+    order.paymentMethod = payment_method;
     order.status = status === "succeeded" ? "completed" : "pending";
     order.save();
-    console.log("order status updated to completed");
+    console.log(`order status updated to ${status}`);
   } catch (err) {
     console.log("error", err);
   }
