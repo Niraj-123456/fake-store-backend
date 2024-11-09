@@ -14,4 +14,4 @@ docker-run:
 
 # start docker container
 docker-start:
-	docker container start ${CONTAINER_NAME} -a
+	docker start -a ${CONTAINER_NAME}

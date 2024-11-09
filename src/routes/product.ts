@@ -8,6 +8,6 @@ const router = express.Router();
 
 router.get("/top-selling", getTopSellingProducts);
 router.get("/list", getProducts);
-router.get("/:productId", getProductDetailById);
+router.get("/detail/:productId", getProductDetailById);
 
 export const productRoutes: Router = router;
