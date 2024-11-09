@@ -3,6 +3,6 @@ import { fetchAllCategories } from "../controllers/category";
 
 const router = Router();
 
-router.get("/all", fetchAllCategories);
+router.get("/list", fetchAllCategories);
 
 export const categoryRoutes: Router = router;

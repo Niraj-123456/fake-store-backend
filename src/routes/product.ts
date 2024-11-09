@@ -1,8 +1,13 @@
 import express, { Router } from "express";
-import { fetchProductDetailById, fetchProducts } from "../controllers/product";
+import {
+  getProductDetailById,
+  getProducts,
+  getTopSellingProducts,
+} from "../controllers/product";
 const router = express.Router();
 
-router.get("/products/list", fetchProducts);
-router.get("/product/:productId", fetchProductDetailById);
+router.get("/top-selling", getTopSellingProducts);
+router.get("/list", getProducts);
+router.get("/:productId", getProductDetailById);
 
 export const productRoutes: Router = router;

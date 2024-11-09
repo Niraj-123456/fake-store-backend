@@ -16,9 +16,9 @@ router.use("/payment", paymentRoutes);
 router.use("/order", orderRoutes);
 router.use("/shipping", shippingRoutes);
 router.use("/cart", cartRoutes);
-router.use("/categories", categoryRoutes);
+router.use("/category", categoryRoutes);
 router.use("/home", homeRoutes);
-router.use("/", productRoutes);
+router.use("/product", productRoutes);
 router.use("/", userRoutes);
 router.use("/", (req, res) => {
   res.status(StatusCodes.OK).json({ message: "API is running" });
