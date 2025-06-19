@@ -6,15 +6,21 @@ import CartModal from "../models/cart";
 const SHIPPING_FEE = Number(process.env.SHIPPING_FEE) || 10;
 
 export const getOrders = async (req: Request, res: Response) => {
-  const { offset, limit } = req.query;
+  const { offset, limit, status } = req.query;
 
   const pageNumber = Number(offset) || 1;
   const noOfItems = Number(limit) || 20;
 
   const skip = (pageNumber - 1) * noOfItems;
 
+  const filter = {
+    $or: [{ status: status || { $exists: true } }],
+  };
+
   try {
-    const orders = await OrderModel.find().skip(skip).limit(Number(limit));
+    const orders = await OrderModel.find(filter)
+      .skip(skip)
+      .limit(Number(limit));
     res.status(StatusCodes.OK).json(orders);
   } catch (ex) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });

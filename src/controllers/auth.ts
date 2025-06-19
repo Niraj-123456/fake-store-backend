@@ -27,6 +27,7 @@ const login = async (req: Request, res: Response) => {
       id: user?._id,
       username: user?.username,
       email: user?.email,
+      isAdmin: user?.isAdmin,
     };
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
@@ -55,6 +56,7 @@ const register = async (req: Request, res: Response) => {
       username: username,
       email: email,
       password: hashedPassword,
+      isAdmin: false,
     };
     const user = new UserModal(userObj);
     user.save();
@@ -63,6 +65,7 @@ const register = async (req: Request, res: Response) => {
       username: user.username,
       email: user.email,
       id: user._id,
+      isAdmin: user?.isAdmin,
     });
   } catch (err) {
     res.status(StatusCodes.INTERNAL_SERVER_ERROR).send(err);
