@@ -1,25 +1,44 @@
-import mongoose from "mongoose";
-import UserModal from "./user";
+import mongoose, { Document, Schema } from "mongoose";
 
-const CartSchema = new mongoose.Schema(
+export interface ICartProduct {
+  productId: string;
+  quantity: number;
+  name: string;
+  price: number;
+  image: string;
+}
+
+export interface ICart extends Document {
+  userId: mongoose.Types.ObjectId;
+  products: ICartProduct[];
+  totalPrice: number;
+  shippingFee: number;
+  finalPrice: number;
+  active: boolean;
+  modifiedOn: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const CartSchema: Schema = new Schema(
   {
     userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: UserModal,
+      type: Schema.Types.ObjectId,
+      ref: "user",
       required: true,
     },
     products: [
       {
-        productId: String,
+        productId: { type: String, required: true },
         quantity: { type: Number, default: 1 },
-        name: String,
-        price: Number,
-        image: String,
+        name: { type: String, required: true },
+        price: { type: Number, required: true },
+        image: { type: String, required: true },
       },
     ],
-    totalPrice: Number,
-    shippingFee: Number,
-    finalPrice: Number,
+    totalPrice: { type: Number, default: 0 },
+    shippingFee: { type: Number, default: 0 },
+    finalPrice: { type: Number, default: 0 },
     active: {
       type: Boolean,
       default: true,
@@ -32,6 +51,6 @@ const CartSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const CartModal = mongoose.model("cart", CartSchema);
+const CartModal = mongoose.model<ICart>("cart", CartSchema);
 
 export default CartModal;

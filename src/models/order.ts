@@ -1,19 +1,40 @@
-import mongoose from "mongoose";
+import mongoose, { Document, Schema } from "mongoose";
 import ShippingModel from "./shipping";
 
-type DeliveryMethod = "STANDARD" | "EXPRESS";
+export type DeliveryMethod = "STANDARD" | "EXPRESS";
 
-const OrderSchema = new mongoose.Schema(
+export interface IOrder extends Document {
+  userId: string;
+  cartId: string;
+  products: {
+    productId: string;
+    quantity: number;
+    name: string;
+    price: number;
+    image: string;
+  }[];
+  totalAmount: number;
+  finalAmount: number;
+  currency: string;
+  deliveryMethod: DeliveryMethod;
+  shippingAddress: any;
+  paymentMethod?: any;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const OrderSchema: Schema = new Schema(
   {
     userId: { type: String, required: true },
     cartId: { type: String, required: true },
     products: [
       {
-        productId: String,
+        productId: { type: String, required: true },
         quantity: { type: Number, default: 1 },
-        name: String,
-        price: Number,
-        image: String,
+        name: { type: String, required: true },
+        price: { type: Number, required: true },
+        image: { type: String, required: true },
       },
     ],
     totalAmount: { type: Number, required: true },
@@ -31,6 +52,6 @@ const OrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const OrderModel = mongoose.model("order", OrderSchema);
+const OrderModel = mongoose.model<IOrder>("order", OrderSchema);
 
 export default OrderModel;

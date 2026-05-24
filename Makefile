@@ -3,6 +3,7 @@ IMAGE_NAME=fake-store-backend
 CONTAINER_NAME=fake-store-backend-container
 PORT=8080
 DOCKER_FILE=Dockerfile
+BASE_URL=localhost:8080
 
 # build docker image
 docker-build:
@@ -27,3 +28,6 @@ docker-stop:
 #remove docker container
 docker-remove:
 	docker container rm ${CONTAINER_NAME}
+
+stripe-webhooks:
+	stripe listen --forward-to ${BASE_URL}/api/v1/stripe-webhook

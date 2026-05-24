@@ -1,9 +1,7 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
-import OrderModel from "../models/order";
-import CartModal from "../models/cart";
-
-const SHIPPING_FEE = Number(process.env.SHIPPING_FEE) || 10;
+import OrderModel, { IOrder } from "../models/order";
+import CartModal, { ICartProduct } from "../models/cart";
 
 export const getOrders = async (req: Request, res: Response) => {
   const { offset, limit, status } = req.query;
@@ -13,59 +11,63 @@ export const getOrders = async (req: Request, res: Response) => {
 
   const skip = (pageNumber - 1) * noOfItems;
 
-  const filter = {
-    $or: [{ status: status || { $exists: true } }],
-  };
+  const filter: any = {};
+  if (status) {
+    filter.status = status;
+  }
 
   try {
-    const orders = await OrderModel.find(filter)
-      .skip(skip)
-      .limit(Number(limit));
+    const orders = await OrderModel.find(filter).skip(skip).limit(noOfItems);
     res.status(StatusCodes.OK).json(orders);
-  } catch (ex) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });
+  } catch (ex: any) {
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: ex.message || ex });
   }
 };
 
 export const getOrderById = async (req: Request, res: Response) => {
   const { orderId } = req.params;
 
-  if (!orderId)
+  if (!orderId) {
     return res
       .status(StatusCodes.BAD_REQUEST)
       .json({ message: "orderId is missing" });
+  }
 
   try {
     const order = await OrderModel.findById(orderId);
 
-    if (!order)
+    if (!order) {
       return res
         .status(StatusCodes.NOT_FOUND)
         .json({ message: "Order not found" });
+    }
 
     res.status(StatusCodes.OK).json(order);
-  } catch (ex) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });
+  } catch (ex: any) {
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: ex.message || ex });
   }
 };
 
 export const getOrderByUserId = async (req: Request, res: Response) => {
   const { userId } = req.params;
 
-  if (!userId)
+  if (!userId) {
     return res
-      .status(StatusCodes.NOT_FOUND)
-      .json({ message: "User not found" });
-  try {
-    const order = await OrderModel.find({ userId });
-    if (!order)
-      return res
-        .status(StatusCodes.NOT_FOUND)
-        .json({ message: "Order not Found" });
+      .status(StatusCodes.BAD_REQUEST)
+      .json({ message: "userId is missing" });
+  }
 
-    res.status(StatusCodes.OK).json(order);
-  } catch (ex) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });
+  try {
+    const orders = await OrderModel.find({ userId });
+    res.status(StatusCodes.OK).json(orders);
+  } catch (ex: any) {
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: ex.message || ex });
   }
 };
 
@@ -80,113 +82,125 @@ export const createUserOrder = async (req: Request, res: Response) => {
     products.length === 0 ||
     !shippingAddress ||
     !status
-  )
+  ) {
     return res.status(StatusCodes.BAD_REQUEST).json({
       message:
         "userId, cartId, products, shippingAddress and status are required",
     });
+  }
 
   try {
-    const shippingFee = deliveryMethod === "STANDARD" ? 4 : 10;
-    const totalAmount = products?.reduce((acc: number, product: any) => {
-      return acc + product.price * (product.quantity || 1);
+    const shippingFee = deliveryMethod === "EXPRESS" ? 10 : 4;
+    const totalAmount = products.reduce((acc: number, product: any) => {
+      return (
+        acc + (Number(product.price) || 0) * (Number(product.quantity) || 1)
+      );
     }, 0);
 
     const finalAmount = totalAmount + shippingFee;
 
-    let newOrder = new OrderModel({
+    const newOrder = new OrderModel({
       userId,
       cartId,
       products,
       shippingAddress,
       status,
-      deliveryMethod,
+      deliveryMethod: deliveryMethod || "STANDARD",
       totalAmount,
       finalAmount,
     });
+
     const data = await newOrder.save();
-    res.status(StatusCodes.CREATED).json(data);
+
+    // Cleanup cart
     const cart = await CartModal.findById(cartId);
-    if (!cart) {
-      console.log(`cart with id ${cartId} not found`);
+    if (cart) {
+      cart.products = cart.products.filter((cartProduct) => {
+        return !products.some(
+          (orderedProduct: ICartProduct) =>
+            orderedProduct.productId === cartProduct.productId,
+        );
+      });
+
+      cart.totalPrice = cart.products.reduce(
+        (acc, product) => acc + (product.price || 0) * (product.quantity || 0),
+        0,
+      );
+      cart.shippingFee = cart.products.length > 0 ? 4 : 0; // Default standard fee if items remain
+      cart.finalPrice = cart.totalPrice + cart.shippingFee;
+      await cart.save();
     }
 
-    cart.products = cart.products.filter((cartProduct) => {
-      return !products.some(
-        (orderedProduct: any) =>
-          orderedProduct.productId === cartProduct.productId
-      );
-    });
-
-    cart.totalPrice = cart.products.reduce(
-      (acc, product) => acc + product.price * product.quantity,
-      0
-    );
-    cart.shippingFee = cart.products?.length > 0 ? shippingFee : 0;
-    cart.finalPrice = cart.totalPrice + cart.shippingFee;
-    await cart.save();
-    console.log("cart updated 93");
-  } catch (ex) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });
+    res.status(StatusCodes.CREATED).json(data);
+  } catch (ex: any) {
+    console.error("Error creating order:", ex);
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: ex.message || ex });
   }
 };
 
 export const updateUserOrder = async (req: Request, res: Response) => {
-  const { userId } = req.params;
-  const { products, totalAmount, finalAmount, address, status } = req.body;
+  const { orderId } = req.params;
+  const { products, totalAmount, finalAmount, shippingAddress, status } =
+    req.body;
 
-  if (!userId)
+  if (!orderId) {
     return res
-      .status(StatusCodes.NOT_FOUND)
-      .json({ message: "User Not Found" });
+      .status(StatusCodes.BAD_REQUEST)
+      .json({ message: "orderId is missing" });
+  }
 
   try {
-    let order = await OrderModel.findOne({ userId });
+    const order = await OrderModel.findById(orderId);
 
-    if (!order)
+    if (!order) {
       return res
         .status(StatusCodes.NOT_FOUND)
         .json({ message: "Order not found" });
+    }
 
-    order.products = products;
-    order.totalAmount = totalAmount;
-    order.finalAmount = finalAmount;
-    order.shippingAddress = address;
-    order.status = status;
+    if (products) order.products = products;
+    if (totalAmount !== undefined) order.totalAmount = totalAmount;
+    if (finalAmount !== undefined) order.finalAmount = finalAmount;
+    if (shippingAddress) order.shippingAddress = shippingAddress;
+    if (status) order.status = status;
 
     const updatedOrder = await order.save();
 
     res.status(StatusCodes.OK).json({ data: updatedOrder });
-  } catch (ex) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });
+  } catch (ex: any) {
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: ex.message || ex });
   }
 };
 
 export const deleteUserOrder = async (req: Request, res: Response) => {
-  const { userId, orderId } = req.params;
+  const { orderId } = req.params;
 
-  if (!userId)
+  if (!orderId) {
     return res
-      .status(StatusCodes.NOT_FOUND)
-      .json({ message: "User not found" });
-  if (!orderId)
-    return res
-      .status(StatusCodes.NOT_FOUND)
-      .json({ message: "Order not found" });
+      .status(StatusCodes.BAD_REQUEST)
+      .json({ message: "orderId is missing" });
+  }
 
   try {
-    const order = await OrderModel.findByIdAndDelete({ _id: orderId, userId });
+    const order = await OrderModel.findByIdAndDelete(orderId);
 
-    if (!order)
+    if (!order) {
       return res
         .status(StatusCodes.NOT_FOUND)
         .json({ message: "Order not found" });
+    }
 
     res.status(StatusCodes.OK).json({
       data: order,
       message: `Order with id ${order.id} deleted successfully.`,
     });
-  } catch (ex) {
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: ex });
+  } catch (ex: any) {
+    res
+      .status(StatusCodes.INTERNAL_SERVER_ERROR)
+      .json({ message: ex.message || ex });
   }
 };
